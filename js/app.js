@@ -1,11 +1,13 @@
 // 字族開花 — 主程式
 const STORAGE_KEY = 'wordFlowerDone';
+const CUSTOM_KEY = 'wordFlowerCustom';
 
 const $ = (sel) => document.querySelector(sel);
 const screens = {
   garden: $('#screen-garden'),
   game: $('#screen-game'),
   book: $('#screen-book'),
+  add: $('#screen-add'),
 };
 
 let current = null;       // 目前嘅字族
@@ -21,17 +23,32 @@ function saveDone(done) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...done]));
 }
 
+// 自訂字族（「➕ 加字」頁面整嘅花）
+function loadCustom() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveCustom(list) {
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
+}
+function getFamilies() {
+  return [...FAMILIES, ...loadCustom()];
+}
+
 // ---------- 畫面切換 ----------
 function show(name) {
   Object.entries(screens).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
-  $('#nav-garden').classList.toggle('active', name !== 'book');
+  $('#nav-garden').classList.toggle('active', name === 'garden' || name === 'game');
   $('#nav-book').classList.toggle('active', name === 'book');
+  $('#nav-add').classList.toggle('active', name === 'add');
   if (name === 'garden') renderGarden();
   if (name === 'book') renderBook();
+  if (name === 'add') initAddForm();
 }
 
 $('#nav-garden').addEventListener('click', () => show('garden'));
 $('#nav-book').addEventListener('click', () => show('book'));
+$('#nav-add').addEventListener('click', () => show('add'));
 $('#btn-back').addEventListener('click', () => show('garden'));
 
 // ---------- 花園（選關） ----------
@@ -39,7 +56,7 @@ function renderGarden() {
   const done = loadDone();
   const grid = $('#garden-grid');
   grid.innerHTML = '';
-  FAMILIES.forEach((f) => {
+  getFamilies().forEach((f) => {
     const card = document.createElement('div');
     card.className = 'flower-card' + (done.has(f.id) ? ' done' : '');
     card.innerHTML = `
@@ -48,6 +65,22 @@ function renderGarden() {
       <div class="chars">${done.has(f.id) ? f.petals.map(p => p.char).join('') : ''}</div>
       <div class="status">${done.has(f.id) ? '已開花！再玩一次？' : '輕按開始'}</div>`;
     card.addEventListener('click', () => startGame(f));
+    if (f.custom) {
+      const del = document.createElement('button');
+      del.className = 'del-btn';
+      del.textContent = '✕';
+      del.title = '刪除呢朵花';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`刪除「${f.base}」字族花？`)) return;
+        saveCustom(loadCustom().filter(c => c.id !== f.id));
+        const d = loadDone();
+        d.delete(f.id);
+        saveDone(d);
+        renderGarden();
+      });
+      card.appendChild(del);
+    }
     grid.appendChild(card);
   });
 }
@@ -55,10 +88,11 @@ function renderGarden() {
 // ---------- 魔法圖鑑 ----------
 function renderBook() {
   const done = loadDone();
-  $('#book-hint').textContent = `你已經種出 ${done.size} / ${FAMILIES.length} 朵字族花！`;
+  const families = getFamilies();
+  $('#book-hint').textContent = `你已經種出 ${done.size} / ${families.length} 朵字族花！`;
   const grid = $('#book-grid');
   grid.innerHTML = '';
-  FAMILIES.forEach((f) => {
+  families.forEach((f) => {
     const got = done.has(f.id);
     const card = document.createElement('div');
     card.className = 'flower-card' + (got ? ' done' : ' locked-look');
@@ -107,7 +141,7 @@ function buildTray() {
   const tray = $('#tray');
   tray.innerHTML = '';
   const TILE_COLORS = ['#ff8fab', '#74c0fc', '#ffd43b', '#8ce99a', '#b197fc', '#ffa94d', '#63e6be'];
-  const radicals = [...current.petals.map(p => p.radical), ...current.distractors];
+  const radicals = [...current.petals.map(p => p.radical), ...(current.distractors || [])];
   radicals.sort(() => Math.random() - 0.5);
   radicals.forEach((r, i) => {
     const tile = document.createElement('div');
@@ -226,7 +260,8 @@ function tryCombine(tile, ghost) {
   // 3. 「叮！」+ 粵語讀字
   setTimeout(() => {
     SFX.ding();
-    speak(`${match.char}！${RADICAL_NAMES[match.radical]}嘅${match.char}，${match.word}嘅${match.char}！`);
+    const radName = RADICAL_NAMES[match.radical] || `${match.radical}字旁`;
+    speak(`${match.char}！${radName}嘅${match.char}，${match.word}嘅${match.char}！`);
   }, 350);
 
   // 4. emoji 小動畫彈出
@@ -274,16 +309,18 @@ function flowerComplete() {
     speak(`好叻呀！${current.base}字族花開晒喇！`);
     $('#celebrate-title').textContent = `「${current.base}」字族花開晒喇！`;
     $('#celebrate-words').textContent = current.petals.map(p => `${p.char} ${p.word}`).join('　');
-    const idx = FAMILIES.indexOf(current);
-    $('#btn-next').textContent = idx < FAMILIES.length - 1 ? '下一朵花 ➜' : '🌱 返回花園';
+    const families = getFamilies();
+    const idx = families.findIndex(f => f.id === current.id);
+    $('#btn-next').textContent = idx < families.length - 1 ? '下一朵花 ➜' : '🌱 返回花園';
     $('#celebrate').classList.remove('hidden');
   }, 600);
 }
 
 $('#btn-next').addEventListener('click', () => {
   $('#celebrate').classList.add('hidden');
-  const idx = FAMILIES.indexOf(current);
-  if (idx < FAMILIES.length - 1) startGame(FAMILIES[idx + 1]);
+  const families = getFamilies();
+  const idx = families.findIndex(f => f.id === current.id);
+  if (idx >= 0 && idx < families.length - 1) startGame(families[idx + 1]);
   else show('garden');
 });
 $('#btn-book').addEventListener('click', () => {
@@ -335,6 +372,89 @@ function launchFireworks(duration) {
     else { clearInterval(burstTimer); ctx.clearRect(0, 0, canvas.width, canvas.height); }
   })();
 }
+
+// ---------- 重設進度 ----------
+$('#btn-reset').addEventListener('click', () => {
+  if (!confirm('確定要重設？所有花會變返花蕾，可以重新再玩。\n（自訂嘅字族花唔會刪除）')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderBook();
+});
+
+// ---------- 自訂字族（加新字） ----------
+const PETAL_LIMIT = 6;
+const CUSTOM_COLORS = ['#e8590c', '#1098ad', '#9c36b5', '#2f9e44', '#e64980', '#5f3dc4'];
+
+function makeRow(values = {}) {
+  const row = document.createElement('div');
+  row.className = 'add-row';
+  row.innerHTML = `
+    <input class="in-radical" maxlength="2" placeholder="氵" value="${values.radical || ''}" />
+    <input class="in-char" maxlength="1" placeholder="清" value="${values.char || ''}" />
+    <input class="in-word" maxlength="4" placeholder="清水" value="${values.word || ''}" />
+    <input class="in-emoji" maxlength="2" placeholder="💧" value="${values.emoji || ''}" />
+    <button class="row-del" title="刪除呢行">✕</button>`;
+  row.querySelector('.row-del').addEventListener('click', () => {
+    if ($('#add-rows').children.length > 1) row.remove();
+  });
+  return row;
+}
+
+function initAddForm() {
+  const rows = $('#add-rows');
+  if (rows.children.length === 0) {
+    for (let i = 0; i < 3; i++) rows.appendChild(makeRow());
+  }
+}
+
+$('#btn-add-row').addEventListener('click', () => {
+  const rows = $('#add-rows');
+  if (rows.children.length >= PETAL_LIMIT) {
+    alert(`最多 ${PETAL_LIMIT} 塊花瓣呀！`);
+    return;
+  }
+  rows.appendChild(makeRow());
+});
+
+$('#btn-save-family').addEventListener('click', () => {
+  const base = $('#add-base').value.trim();
+  if (!base) { alert('要填花心字呀！'); return; }
+
+  const petals = [];
+  for (const row of $('#add-rows').children) {
+    const radical = row.querySelector('.in-radical').value.trim();
+    const char = row.querySelector('.in-char').value.trim();
+    if (!radical && !char) continue; // 空行跳過
+    if (!radical || !char) { alert('每塊花瓣都要有「部首」同「新字」呀！'); return; }
+    petals.push({
+      radical,
+      char,
+      word: row.querySelector('.in-word').value.trim() || char,
+      emoji: row.querySelector('.in-emoji').value.trim() || '🌟',
+    });
+  }
+  if (petals.length < 2) { alert('至少要兩塊花瓣先開到花呀！'); return; }
+  if (new Set(petals.map(p => p.radical)).size !== petals.length) {
+    alert('每塊花瓣嘅部首唔可以重複呀！');
+    return;
+  }
+
+  const custom = loadCustom();
+  const family = {
+    id: 'custom-' + Date.now(),
+    base,
+    color: CUSTOM_COLORS[custom.length % CUSTOM_COLORS.length],
+    petals,
+    distractors: [],
+    custom: true,
+  };
+  custom.push(family);
+  saveCustom(custom);
+
+  // 清空表單，即刻試玩
+  $('#add-base').value = '';
+  $('#add-rows').innerHTML = '';
+  startGame(family);
+});
 
 // ---------- 啟動 ----------
 renderGarden();

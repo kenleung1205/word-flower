@@ -14,6 +14,7 @@
     <nav>
       <button id="nav-garden" class="nav-btn active">🌱 花園</button>
       <button id="nav-book" class="nav-btn">📖 魔法圖鑑</button>
+      <button id="nav-add" class="nav-btn">➕ 加字</button>
     </nav>
   </header>
 
@@ -41,6 +42,25 @@
   <main id="screen-book" class="screen hidden">
     <p class="hint" id="book-hint"></p>
     <div id="book-grid" class="garden-grid"></div>
+    <button id="btn-reset" class="danger-btn">🔄 重設開花進度</button>
+  </main>
+
+  <!-- 自訂字族 -->
+  <main id="screen-add" class="screen hidden">
+    <p class="hint">自己種一朵新嘅字族花！輸入花心字，再加花瓣（部首 + 新字）。</p>
+    <div class="add-form">
+      <label class="base-label">花心字
+        <input id="add-base" maxlength="1" placeholder="例：青" />
+      </label>
+      <div class="row-head">
+        <span>部首</span><span>新字</span><span>詞語</span><span>emoji</span><span></span>
+      </div>
+      <div id="add-rows"></div>
+      <div class="add-form-btns">
+        <button id="btn-add-row">＋ 加多塊花瓣</button>
+        <button id="btn-save-family">💾 儲存呢朵花</button>
+      </div>
+    </div>
   </main>
 
   <!-- 完成一朵花嘅慶祝層 -->

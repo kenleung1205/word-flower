@@ -81,6 +81,94 @@ nav { display: flex; gap: 8px; }
 
 .book-words { font-size: .85rem; color: #777; margin-top: 4px; line-height: 1.5; }
 
+.flower-card { position: relative; }
+.del-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: #ffe3e3;
+  color: #c92a2a;
+  font-size: .85rem;
+  cursor: pointer;
+}
+
+.danger-btn {
+  margin-top: 20px;
+  border: none;
+  background: #ffe3e3;
+  color: #c92a2a;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-family: inherit;
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+  cursor: pointer;
+}
+
+/* ---------- 自訂字族表單 ---------- */
+.add-form {
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.1);
+}
+.base-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 14px;
+}
+.add-form input {
+  -webkit-user-select: text;
+  user-select: text;
+  font-family: inherit;
+  font-size: 1.2rem;
+  text-align: center;
+  border: 2px solid #e0d8cc;
+  border-radius: 10px;
+  padding: 8px 4px;
+  width: 100%;
+  min-width: 0;
+}
+#add-base { width: 72px; font-size: 1.6rem; }
+.row-head, .add-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr 1fr 34px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.row-head { font-size: .85rem; color: #999; text-align: center; margin-bottom: 4px; }
+.row-del {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #f1f3f5;
+  color: #868e96;
+  cursor: pointer;
+}
+.add-form-btns { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.add-form-btns button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0,0,0,.12);
+}
+#btn-add-row { background: #d0ebff; }
+#btn-save-family { background: #ffd166; }
+
 /* ---------- 遊戲畫面 ---------- */
 #screen-game { position: relative; overflow: hidden; }
 
