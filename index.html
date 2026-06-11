@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>字族開花 🌸</title>
+  <meta name="description" content="拖曳部首積木，幫字族花開花！互動中文識字小遊戲。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🌸</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1 id="app-title">🌸 字族開花</h1>
+    <nav>
+      <button id="nav-garden" class="nav-btn active">🌱 花園</button>
+      <button id="nav-book" class="nav-btn">📖 魔法圖鑑</button>
+    </nav>
+  </header>
+
+  <!-- 花園：選擇字族花 -->
+  <main id="screen-garden" class="screen">
+    <p class="hint">揀一朵花蕾，幫佢開花啦！</p>
+    <div id="garden-grid" class="garden-grid"></div>
+  </main>
+
+  <!-- 遊戲：拖曳拼字 -->
+  <main id="screen-game" class="screen hidden">
+    <button id="btn-back" class="back-btn">← 返回花園</button>
+    <div id="flower-area">
+      <div id="flower">
+        <div id="petals"></div>
+        <div id="flower-center"><span id="base-char"></span></div>
+        <div id="stem"></div>
+      </div>
+    </div>
+    <p class="hint" id="game-hint">將部首積木拖去花心啦！</p>
+    <div id="tray"></div>
+  </main>
+
+  <!-- 魔法圖鑑 -->
+  <main id="screen-book" class="screen hidden">
+    <p class="hint" id="book-hint"></p>
+    <div id="book-grid" class="garden-grid"></div>
+  </main>
+
+  <!-- 完成一朵花嘅慶祝層 -->
+  <div id="celebrate" class="overlay hidden">
+    <div class="celebrate-card">
+      <div class="celebrate-emoji">🎉🌸🎉</div>
+      <h2 id="celebrate-title"></h2>
+      <p id="celebrate-words"></p>
+      <div class="celebrate-btns">
+        <button id="btn-next">下一朵花 ➜</button>
+        <button id="btn-book">📖 睇圖鑑</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="fireworks"></canvas>
+
+  <script src="js/data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
