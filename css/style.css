@@ -245,6 +245,7 @@ nav { display: flex; gap: 8px; }
   justify-content: center;
   box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 -4px 8px rgba(0,0,0,.08);
   z-index: 3;
+  cursor: pointer;
 }
 #flower-center.glow {
   box-shadow: 0 0 0 8px rgba(255, 209, 102, .45), 0 4px 12px rgba(0,0,0,.18);
