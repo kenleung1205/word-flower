@@ -17,6 +17,8 @@ const screens = {
 let current = null;       // 目前嘅花
 let filled = new Set();   // 今朵花已拼好嘅字
 let busy = false;         // 合成動畫進行中，暫停拖放判定
+let lastCharSpoken = false; // 最後一個字嘅讀音係咪讀完
+let pendingComplete = null;  // 等讀完最後一個字先做嘅「開晒花」動作
 let gardenMode = 'family'; // 'family' = 字族開花；'radical' = 部首開花
 
 // ---------- 進度 ----------
@@ -261,6 +263,8 @@ function startGame(family) {
   current = family;
   filled = new Set();
   busy = false;
+  lastCharSpoken = false;
+  pendingComplete = null;
   $('#base-char').textContent = family.base;
   $('#game-hint').textContent = family.mode === 'radical'
     ? '將「聲旁」積木拖去部首花心啦！'
@@ -390,6 +394,9 @@ function tryCombine(tile, ghost) {
   ghost.remove();
   tile.classList.add('gone');
 
+  // 拼完呢個係咪最後一塊？（最後一塊要等讀完先彈慶祝）
+  const isLast = filled.size === current.petals.length - 1;
+
   const centerRect = $('#flower-center').getBoundingClientRect();
   const cx = centerRect.left + centerRect.width / 2;
   const cy = centerRect.top + centerRect.height / 2;
@@ -418,7 +425,16 @@ function tryCombine(tile, ghost) {
     // 部首模式：花心係部首，要讀花心嘅部首名；字族模式：讀拖入嘅部首
     const radChar = current.mode === 'radical' ? current.base : match.radical;
     const radName = RADICAL_NAMES[radChar] || `${radChar}字旁`;
-    speak(`${match.char}！${radName}嘅${match.char}，${match.word}嘅${match.char}！`);
+    const phrase = `${match.char}！${radName}嘅${match.char}，${match.word}嘅${match.char}！`;
+    if (isLast) {
+      lastCharSpoken = false;
+      speak(phrase, () => {
+        lastCharSpoken = true;
+        if (pendingComplete) { const fn = pendingComplete; pendingComplete = null; fn(); }
+      });
+    } else {
+      speak(phrase);
+    }
   }, 350);
 
   // 4. emoji 小動畫彈出
@@ -453,7 +469,15 @@ function tryCombine(tile, ghost) {
     filled.add(match.char);
     $('#game-hint').textContent = `${match.char} — ${match.word} ${match.emoji}（㩒個字睇例句）`;
     busy = false;
-    if (filled.size === current.petals.length) flowerComplete();
+    if (filled.size === current.petals.length) {
+      // 等最後一個字讀完先彈慶祝；萬一 TTS 唔 fire onend，6 秒後保底彈出
+      const go = () => flowerComplete();
+      if (lastCharSpoken) go();
+      else {
+        pendingComplete = go;
+        setTimeout(() => { if (pendingComplete) { pendingComplete = null; go(); } }, 6000);
+      }
+    }
   }, 1650);
 }
 

@@ -56,8 +56,9 @@ const SFX = (() => {
 })();
 
 // 粵語讀字：「她！女字旁嘅她，她們嘅她！」
-function speak(text) {
-  if (!('speechSynthesis' in window)) return;
+// onEnd：讀完（或讀唔到）之後嘅 callback，得閒先做（例如等讀完先彈慶祝）
+function speak(text, onEnd) {
+  if (!('speechSynthesis' in window)) { if (onEnd) setTimeout(onEnd, 800); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   const voices = speechSynthesis.getVoices();
@@ -65,6 +66,12 @@ function speak(text) {
   if (canto) u.voice = canto;
   u.lang = canto ? canto.lang : 'zh-HK';
   u.rate = 0.85;
+  if (onEnd) {
+    let done = false;
+    const finish = () => { if (done) return; done = true; onEnd(); };
+    u.onend = finish;
+    u.onerror = finish;
+  }
   speechSynthesis.speak(u);
 }
 
