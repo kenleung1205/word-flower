@@ -437,3 +437,146 @@ nav { display: flex; gap: 8px; }
   pointer-events: none;
   z-index: 90;
 }
+
+/* ---------- 花園模式切換 ---------- */
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.mode-tab {
+  border: 2px solid #e0d8cc;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.mode-tab.active { background: #ffd166; border-color: #ffd166; }
+
+/* 可㩒嘅字（圖鑑入面） */
+.flower-card .chars .ch {
+  cursor: pointer;
+  border-bottom: 2px dotted #bbb;
+}
+
+/* ---------- 老師報告 ---------- */
+.report-toggle {
+  margin-top: 18px;
+  border: none;
+  background: #e7f5ff;
+  color: #1971c2;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-family: inherit;
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+  cursor: pointer;
+}
+.report-panel {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px 20px;
+  margin-top: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+}
+.report-panel h3 { margin: 4px 0 10px; }
+.report-stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #eee; }
+.report-stat .v { font-weight: bold; }
+.report-list { margin: 8px 0 0; padding-left: 18px; color: #555; }
+.report-list li { margin: 3px 0; }
+.report-empty { color: #999; text-align: center; padding: 8px 0; }
+
+/* ---------- 測驗 ---------- */
+#screen-quiz { align-items: center; }
+.quiz-pick { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 360px; margin-top: 10px; }
+.quiz-type-btn {
+  border: none;
+  border-radius: 16px;
+  padding: 18px;
+  font-size: 1.3rem;
+  font-family: inherit;
+  cursor: pointer;
+  background: #d0ebff;
+  box-shadow: 0 3px 0 rgba(0,0,0,.12);
+}
+.quiz-type-btn:nth-child(2) { background: #d3f9d8; }
+#quiz-play { width: 100%; max-width: 460px; text-align: center; }
+#quiz-progress { color: #999; font-size: .95rem; margin-bottom: 8px; }
+#quiz-question {
+  font-size: 1.3rem;
+  background: #fff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+  margin-bottom: 16px;
+}
+#quiz-question .big { font-size: 3.5rem; display: block; margin: 6px 0; }
+.quiz-replay {
+  border: none; background: #ffd166; border-radius: 999px;
+  padding: 8px 16px; font-size: 1rem; font-family: inherit; cursor: pointer; margin-top: 8px;
+}
+#quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.quiz-opt {
+  border: 2px solid #e0d8cc;
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 1.4rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.quiz-opt.correct { background: #b2f2bb; border-color: #51cf66; }
+.quiz-opt.wrong { background: #ffc9c9; border-color: #ff6b6b; }
+.quiz-opt:disabled { cursor: default; }
+.quiz-score { font-size: 1.6rem; text-align: center; margin: 30px 0 20px; line-height: 1.6; }
+.quiz-result-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.quiz-result-btns button {
+  border: none; border-radius: 999px; padding: 12px 20px; font-size: 1.1rem;
+  font-family: inherit; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.15);
+}
+#btn-quiz-again { background: #ffd166; }
+#btn-quiz-menu { background: #cdeccd; }
+
+/* ---------- 例詞 / 例句 ---------- */
+.ex-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 24px;
+  width: 90vw;
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+  animation: petal-pop .4s ease;
+}
+.ex-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 32px; height: 32px; border: none; border-radius: 50%;
+  background: #f1f3f5; color: #868e96; font-size: 1rem; cursor: pointer;
+}
+.ex-char { font-size: 4rem; text-align: center; color: #ec6ba5; }
+.ex-section h3 { margin: 14px 0 6px; font-size: 1.05rem; }
+.ex-list { display: flex; flex-direction: column; gap: 6px; }
+.ex-list .item {
+  background: #f8f5f0; border-radius: 10px; padding: 8px 12px; font-size: 1.1rem; cursor: pointer;
+}
+.ex-list .none { color: #aaa; font-size: .95rem; }
+.ex-edit-btn {
+  margin-top: 16px; width: 100%; border: none; background: #e7f5ff; color: #1971c2;
+  border-radius: 12px; padding: 10px; font-size: 1rem; font-family: inherit; cursor: pointer;
+}
+.ex-label { display: block; margin-top: 12px; font-size: .95rem; color: #555; }
+.ex-label textarea {
+  width: 100%; margin-top: 4px; font-family: inherit; font-size: 1.05rem;
+  border: 2px solid #e0d8cc; border-radius: 10px; padding: 8px; box-sizing: border-box; resize: vertical;
+}
+.ex-save-btn {
+  margin-top: 12px; width: 100%; border: none; background: #ffd166;
+  border-radius: 12px; padding: 12px; font-size: 1.05rem; font-family: inherit; cursor: pointer;
+}

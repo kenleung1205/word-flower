@@ -1,19 +1,23 @@
 // 字族開花 — 主程式
 const STORAGE_KEY = 'wordFlowerDone';
 const CUSTOM_KEY = 'wordFlowerCustom';
-const EXTRA_KEY = 'wordFlowerExtra'; // 為現有的花（內置或自訂）後加的花瓣 { [familyId]: [petal,...] }
+const EXTRA_KEY = 'wordFlowerExtra';     // 為現有的花後加的花瓣 { [familyId]: [petal,...] }
+const EXAMPLES_KEY = 'wordFlowerExamples'; // 老師加嘅例詞例句 { [char]: {words:[], sentences:[]} }
+const STATS_KEY = 'wordFlowerStats';       // 測驗統計
 
 const $ = (sel) => document.querySelector(sel);
 const screens = {
   garden: $('#screen-garden'),
   game: $('#screen-game'),
   book: $('#screen-book'),
+  quiz: $('#screen-quiz'),
   add: $('#screen-add'),
 };
 
-let current = null;       // 目前嘅字族
+let current = null;       // 目前嘅花
 let filled = new Set();   // 今朵花已拼好嘅字
 let busy = false;         // 合成動畫進行中，暫停拖放判定
+let gardenMode = 'family'; // 'family' = 字族開花；'radical' = 部首開花
 
 // ---------- 進度 ----------
 function loadDone() {
@@ -53,27 +57,127 @@ function getFamily(id) {
   return getFamilies().find(f => f.id === id) || null;
 }
 
+// ---------- 部首為主嘅花 ----------
+// 把字族資料反轉：花心 = 部首，拖「聲旁」砌字；再同手寫嘅 RADICAL_FAMILIES 合併。
+const RADICAL_COLORS = ['#4dabf7', '#f783ac', '#51cf66', '#ffa94d', '#b197fc', '#ff8787', '#3bc9db'];
+function getRadicalFamilies() {
+  // 1. 由現有字族倒推：每個部首收集所有用到佢嘅字
+  const map = new Map(); // radical -> petals[{radical:聲旁, char, word, emoji}]
+  getFamilies().forEach((f) => {
+    f.petals.forEach((p) => {
+      if (!map.has(p.radical)) map.set(p.radical, []);
+      map.get(p.radical).push({ radical: f.base, char: p.char, word: p.word, emoji: p.emoji });
+    });
+  });
+
+  // 2. 同手寫嘅部首花合併（手寫優先，再補返倒推到嘅字，按 char 去重）
+  const authored = new Map(RADICAL_FAMILIES.map(rf => [rf.base, rf]));
+  const result = [];
+  const seen = new Set();
+
+  RADICAL_FAMILIES.forEach((rf) => {
+    const petals = [...rf.petals];
+    const have = new Set(petals.map(p => p.char));
+    (map.get(rf.base) || []).forEach(p => { if (!have.has(p.char)) { petals.push(p); have.add(p.char); } });
+    result.push({ ...rf, petals });
+    seen.add(rf.base);
+  });
+
+  // 3. 淨係倒推到、又夠字（≥2）嘅部首，自動整一朵花
+  let ci = 0;
+  for (const [radical, petals] of map) {
+    if (seen.has(radical) || petals.length < 2) continue;
+    // char 去重
+    const uniq = [];
+    const have = new Set();
+    petals.forEach(p => { if (!have.has(p.char)) { uniq.push(p); have.add(p.char); } });
+    result.push({
+      id: 'rad-' + radical,
+      base: radical,
+      color: RADICAL_COLORS[ci++ % RADICAL_COLORS.length],
+      mode: 'radical',
+      petals: uniq,
+      distractors: [],
+    });
+  }
+  return result;
+}
+
+// 按目前模式攞花列表
+function flowersForMode(mode) {
+  return mode === 'radical' ? getRadicalFamilies() : getFamilies();
+}
+function getAllFlowers() {
+  return [...getFamilies(), ...getRadicalFamilies()];
+}
+function findFlower(id) {
+  return getAllFlowers().find(f => f.id === id) || null;
+}
+
+// ---------- 例詞 / 例句 ----------
+function loadExamples() {
+  try { return JSON.parse(localStorage.getItem(EXAMPLES_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveExamples(map) {
+  localStorage.setItem(EXAMPLES_KEY, JSON.stringify(map));
+}
+
+// ---------- 測驗統計 ----------
+function loadStats() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STATS_KEY) || '{}');
+    return { char: s.char || {}, radical: s.radical || {}, quizzes: s.quizzes || 0 };
+  } catch { return { char: {}, radical: {}, quizzes: 0 }; }
+}
+function saveStats(s) {
+  localStorage.setItem(STATS_KEY, JSON.stringify(s));
+}
+function recordAnswer(kind, key, correct) {
+  const s = loadStats();
+  const bucket = s[kind];
+  if (!bucket[key]) bucket[key] = { right: 0, wrong: 0 };
+  bucket[key][correct ? 'right' : 'wrong']++;
+  saveStats(s);
+}
+
 // ---------- 畫面切換 ----------
 function show(name) {
   Object.entries(screens).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
   $('#nav-garden').classList.toggle('active', name === 'garden' || name === 'game');
   $('#nav-book').classList.toggle('active', name === 'book');
+  $('#nav-quiz').classList.toggle('active', name === 'quiz');
   $('#nav-add').classList.toggle('active', name === 'add');
   if (name === 'garden') renderGarden();
   if (name === 'book') renderBook();
+  if (name === 'quiz') openQuizMenu();
 }
 
 $('#nav-garden').addEventListener('click', () => show('garden'));
 $('#nav-book').addEventListener('click', () => show('book'));
+$('#nav-quiz').addEventListener('click', () => show('quiz'));
 $('#nav-add').addEventListener('click', () => openAddNew());
 $('#btn-back').addEventListener('click', () => show('garden'));
+
+// 花園模式切換：字族 / 部首
+function setGardenMode(mode) {
+  gardenMode = mode;
+  $('#mode-family').classList.toggle('active', mode === 'family');
+  $('#mode-radical').classList.toggle('active', mode === 'radical');
+  $('#garden-hint').textContent = mode === 'radical'
+    ? '揀一個部首，拖「聲旁」砌字，睇下部首點樣表意！'
+    : '揀一朵花蕾，幫佢開花啦！';
+  renderGarden();
+}
+$('#mode-family').addEventListener('click', () => setGardenMode('family'));
+$('#mode-radical').addEventListener('click', () => setGardenMode('radical'));
 
 // ---------- 花園（選關） ----------
 function renderGarden() {
   const done = loadDone();
   const grid = $('#garden-grid');
   grid.innerHTML = '';
-  getFamilies().forEach((f) => {
+  flowersForMode(gardenMode).forEach((f) => {
     const card = document.createElement('div');
     card.className = 'flower-card' + (done.has(f.id) ? ' done' : '');
     card.innerHTML = `
@@ -83,18 +187,20 @@ function renderGarden() {
       <div class="status">${done.has(f.id) ? '已開花！再玩一次？' : '輕按開始'}</div>`;
     card.addEventListener('click', () => startGame(f));
 
-    // 每朵花都可以加花瓣
-    const addP = document.createElement('button');
-    addP.className = 'add-petal-btn';
-    addP.textContent = '＋';
-    addP.title = '加多塊花瓣';
-    addP.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openAddPetals(f.id);
-    });
-    card.appendChild(addP);
+    // 加花瓣 / 刪除 淨係喺字族模式先有（部首花係自動由字族砌出嚟）
+    if (gardenMode === 'family') {
+      const addP = document.createElement('button');
+      addP.className = 'add-petal-btn';
+      addP.textContent = '＋';
+      addP.title = '加多塊花瓣';
+      addP.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openAddPetals(f.id);
+      });
+      card.appendChild(addP);
+    }
 
-    if (f.custom) {
+    if (gardenMode === 'family' && f.custom) {
       const del = document.createElement('button');
       del.className = 'del-btn';
       del.textContent = '✕';
@@ -117,20 +223,35 @@ function renderGarden() {
 // ---------- 魔法圖鑑 ----------
 function renderBook() {
   const done = loadDone();
-  const families = getFamilies();
-  $('#book-hint').textContent = `你已經種出 ${done.size} / ${families.length} 朵字族花！`;
+  const flowers = getAllFlowers();
+  const doneCount = flowers.filter(f => done.has(f.id)).length;
+  $('#book-hint').textContent = `你已經種出 ${doneCount} / ${flowers.length} 朵花！㩒一㩒學過嘅字，睇例詞例句。`;
   const grid = $('#book-grid');
   grid.innerHTML = '';
-  families.forEach((f) => {
+  flowers.forEach((f) => {
     const got = done.has(f.id);
     const card = document.createElement('div');
     card.className = 'flower-card' + (got ? ' done' : ' locked-look');
+    const label = f.mode === 'radical' ? '部首' : '字族';
     card.innerHTML = `
       <div class="bud">${got ? '🌸' : '❔'}</div>
-      <div class="base" style="color:${f.color}">${f.base}</div>
-      <div class="chars">${got ? f.petals.map(p => p.char).join('') : '？？？？'}</div>
+      <div class="base" style="color:${f.color}">${f.base}<small style="font-size:.5em;color:#aaa"> ${label}</small></div>
+      <div class="chars"></div>
       <div class="book-words">${got ? f.petals.map(p => p.word).join('・') : '快啲去種呢朵花啦！'}</div>`;
-    if (!got) card.addEventListener('click', () => startGame(f));
+    const charsEl = card.querySelector('.chars');
+    if (got) {
+      // 每個字做一個可㩒嘅 span → 開例詞例句
+      f.petals.forEach((p) => {
+        const span = document.createElement('span');
+        span.className = 'ch';
+        span.textContent = p.char;
+        span.addEventListener('click', (e) => { e.stopPropagation(); openExamples(p.char); });
+        charsEl.appendChild(span);
+      });
+    } else {
+      charsEl.textContent = '？？？？';
+      card.addEventListener('click', () => startGame(f));
+    }
     grid.appendChild(card);
   });
 }
@@ -141,7 +262,9 @@ function startGame(family) {
   filled = new Set();
   busy = false;
   $('#base-char').textContent = family.base;
-  $('#game-hint').textContent = '將部首積木拖去花心啦！';
+  $('#game-hint').textContent = family.mode === 'radical'
+    ? '將「聲旁」積木拖去部首花心啦！'
+    : '將部首積木拖去花心啦！';
   buildPetals();
   buildTray();
   show('game');
@@ -292,7 +415,9 @@ function tryCombine(tile, ghost) {
   // 3. 「叮！」+ 粵語讀字
   setTimeout(() => {
     SFX.ding();
-    const radName = RADICAL_NAMES[match.radical] || `${match.radical}字旁`;
+    // 部首模式：花心係部首，要讀花心嘅部首名；字族模式：讀拖入嘅部首
+    const radChar = current.mode === 'radical' ? current.base : match.radical;
+    const radName = RADICAL_NAMES[radChar] || `${radChar}字旁`;
     speak(`${match.char}！${radName}嘅${match.char}，${match.word}嘅${match.char}！`);
   }, 350);
 
@@ -322,8 +447,11 @@ function tryCombine(tile, ghost) {
     petal.textContent = match.char;
     petal.style.background = current.color;
     petal.classList.add('filled');
+    petal.style.cursor = 'pointer';
+    petal.title = '㩒入去睇例詞例句';
+    petal.addEventListener('click', () => openExamples(match.char));
     filled.add(match.char);
-    $('#game-hint').textContent = `${match.char} — ${match.word} ${match.emoji}`;
+    $('#game-hint').textContent = `${match.char} — ${match.word} ${match.emoji}（㩒個字睇例句）`;
     busy = false;
     if (filled.size === current.petals.length) flowerComplete();
   }, 1650);
@@ -338,21 +466,23 @@ function flowerComplete() {
   setTimeout(() => {
     SFX.fireworks();
     launchFireworks(3000);
-    speak(`好叻呀！${current.base}字族花開晒喇！`);
-    $('#celebrate-title').textContent = `「${current.base}」字族花開晒喇！`;
+    const kind = current.mode === 'radical' ? '部首' : '字族';
+    const name = current.mode === 'radical' ? (RADICAL_NAMES[current.base] || current.base) : current.base;
+    speak(`好叻呀！${name}${kind}花開晒喇！`);
+    $('#celebrate-title').textContent = `「${current.base}」${kind}花開晒喇！`;
     $('#celebrate-words').textContent = current.petals.map(p => `${p.char} ${p.word}`).join('　');
-    const families = getFamilies();
-    const idx = families.findIndex(f => f.id === current.id);
-    $('#btn-next').textContent = idx < families.length - 1 ? '下一朵花 ➜' : '🌱 返回花園';
+    const list = flowersForMode(current.mode === 'radical' ? 'radical' : 'family');
+    const idx = list.findIndex(f => f.id === current.id);
+    $('#btn-next').textContent = idx < list.length - 1 ? '下一朵花 ➜' : '🌱 返回花園';
     $('#celebrate').classList.remove('hidden');
   }, 600);
 }
 
 $('#btn-next').addEventListener('click', () => {
   $('#celebrate').classList.add('hidden');
-  const families = getFamilies();
-  const idx = families.findIndex(f => f.id === current.id);
-  if (idx >= 0 && idx < families.length - 1) startGame(families[idx + 1]);
+  const list = flowersForMode(current && current.mode === 'radical' ? 'radical' : 'family');
+  const idx = list.findIndex(f => f.id === current.id);
+  if (idx >= 0 && idx < list.length - 1) startGame(list[idx + 1]);
   else show('garden');
 });
 $('#btn-book').addEventListener('click', () => {
@@ -557,5 +687,250 @@ function savePetalsToExisting() {
   startGame(getFamily(editingId));
 }
 
+// ---------- 例詞 / 例句彈窗 ----------
+let exChar = null;
+
+function openExamples(char) {
+  exChar = char;
+  const data = loadExamples()[char] || { words: [], sentences: [] };
+  $('#ex-char').textContent = char;
+  renderExList('#ex-words', data.words);
+  renderExList('#ex-sentences', data.sentences);
+  $('#ex-words-input').value = (data.words || []).join('\n');
+  $('#ex-sentences-input').value = (data.sentences || []).join('\n');
+  $('#ex-edit-area').classList.add('hidden');
+  $('#examples-modal').classList.remove('hidden');
+}
+
+function renderExList(sel, items) {
+  const box = $(sel);
+  box.innerHTML = '';
+  if (!items || items.length === 0) {
+    const none = document.createElement('div');
+    none.className = 'none';
+    none.textContent = '（未有，㩒下面「編輯」加返）';
+    box.appendChild(none);
+    return;
+  }
+  items.forEach((t) => {
+    const it = document.createElement('div');
+    it.className = 'item';
+    it.textContent = t;
+    it.title = '㩒一㩒讀出嚟';
+    it.addEventListener('click', () => speak(t));
+    box.appendChild(it);
+  });
+}
+
+$('#ex-close').addEventListener('click', () => $('#examples-modal').classList.add('hidden'));
+$('#examples-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'examples-modal') $('#examples-modal').classList.add('hidden');
+});
+$('#ex-edit').addEventListener('click', () => $('#ex-edit-area').classList.toggle('hidden'));
+$('#ex-save').addEventListener('click', () => {
+  if (!exChar) return;
+  const parse = (v) => v.split('\n').map(s => s.trim()).filter(Boolean);
+  const map = loadExamples();
+  map[exChar] = {
+    words: parse($('#ex-words-input').value),
+    sentences: parse($('#ex-sentences-input').value),
+  };
+  saveExamples(map);
+  openExamples(exChar); // 重新渲染
+});
+
+// ---------- 測驗 ----------
+const QUIZ_LEN = 8;
+let quiz = null; // { type, questions:[], idx, score }
+
+function openQuizMenu() {
+  $('#quiz-menu').classList.remove('hidden');
+  $('#quiz-play').classList.add('hidden');
+  $('#quiz-result').classList.add('hidden');
+}
+
+document.querySelectorAll('.quiz-type-btn').forEach((btn) => {
+  btn.addEventListener('click', () => startQuiz(btn.dataset.type));
+});
+$('#btn-quiz-again').addEventListener('click', () => startQuiz(quiz && quiz.type));
+$('#btn-quiz-menu').addEventListener('click', openQuizMenu);
+
+function shuffle(arr) { return arr.slice().sort(() => Math.random() - 0.5); }
+function sample(arr, n) { return shuffle(arr).slice(0, n); }
+
+// 所有學過/可考嘅字（兩個模式嘅花瓣合埋，按字去重）
+function allChars() {
+  const seen = new Map();
+  getAllFlowers().forEach(f => f.petals.forEach(p => { if (!seen.has(p.char)) seen.set(p.char, p); }));
+  return [...seen.values()];
+}
+
+function startQuiz(type) {
+  if (!type) return;
+  const questions = type === 'word' ? buildWordQuiz() : buildRadicalQuiz();
+  if (!questions || questions.length === 0) {
+    alert('暫時未夠資料出題，先去種多幾朵花啦！');
+    return;
+  }
+  quiz = { type, questions, idx: 0, score: 0 };
+  $('#quiz-menu').classList.add('hidden');
+  $('#quiz-result').classList.add('hidden');
+  $('#quiz-play').classList.remove('hidden');
+  renderQuestion();
+}
+
+// 聽詞揀字
+function buildWordQuiz() {
+  const pool = allChars().filter(p => p.word);
+  if (pool.length < 4) return [];
+  return sample(pool, Math.min(QUIZ_LEN, pool.length)).map((p) => {
+    const wrong = sample(pool.filter(q => q.char !== p.char), 3).map(q => q.char);
+    return {
+      kind: 'char',
+      key: p.char,
+      prompt: { word: p.word },
+      answer: p.char,
+      options: shuffle([p.char, ...wrong]),
+    };
+  });
+}
+
+// 部首配意思
+function buildRadicalQuiz() {
+  const present = new Set();
+  getFamilies().forEach(f => f.petals.forEach(p => present.add(p.radical)));
+  getRadicalFamilies().forEach(f => present.add(f.base));
+  const radicals = [...present].filter(r => RADICAL_MEANING[r]);
+  if (radicals.length < 4) return [];
+  return sample(radicals, Math.min(QUIZ_LEN, radicals.length)).map((r) => {
+    const wrong = sample(radicals.filter(x => x !== r), 3).map(x => RADICAL_MEANING[x]);
+    return {
+      kind: 'radical',
+      key: r,
+      prompt: { radical: r },
+      answer: RADICAL_MEANING[r],
+      options: shuffle([RADICAL_MEANING[r], ...wrong]),
+    };
+  });
+}
+
+function renderQuestion() {
+  const q = quiz.questions[quiz.idx];
+  $('#quiz-progress').textContent = `第 ${quiz.idx + 1} / ${quiz.questions.length} 題　・　分數 ${quiz.score}`;
+  $('#quiz-feedback').textContent = '';
+
+  const qBox = $('#quiz-question');
+  if (q.kind === 'char') {
+    qBox.innerHTML = `聽下，撳啱嘅字：<button class="quiz-replay" id="quiz-replay">🔊 再聽一次</button>`;
+    $('#quiz-replay').addEventListener('click', () => speak(q.prompt.word));
+    speak(q.prompt.word);
+  } else {
+    qBox.innerHTML = `<span class="big">${q.prompt.radical}</span>呢個部首同咩有關？`;
+  }
+
+  const optBox = $('#quiz-options');
+  optBox.innerHTML = '';
+  q.options.forEach((opt) => {
+    const b = document.createElement('button');
+    b.className = 'quiz-opt';
+    b.textContent = opt;
+    b.addEventListener('click', () => answerQuestion(b, opt, q));
+    optBox.appendChild(b);
+  });
+}
+
+function answerQuestion(btn, opt, q) {
+  const buttons = [...$('#quiz-options').children];
+  buttons.forEach(b => { b.disabled = true; });
+  const correct = opt === q.answer;
+  recordAnswer(q.kind, q.key, correct);
+
+  if (correct) {
+    btn.classList.add('correct');
+    quiz.score++;
+    SFX.ding();
+    $('#quiz-feedback').textContent = '叮！啱晒！👍';
+    if (q.kind === 'char') speak(q.answer);
+  } else {
+    btn.classList.add('wrong');
+    buttons.find(b => b.textContent === q.answer)?.classList.add('correct');
+    SFX.buzz();
+    $('#quiz-feedback').textContent = q.kind === 'char'
+      ? `應該係「${q.answer}」呀！`
+      : `「${q.key}」${q.answer}。`;
+  }
+
+  setTimeout(() => {
+    quiz.idx++;
+    if (quiz.idx < quiz.questions.length) renderQuestion();
+    else finishQuiz();
+  }, correct ? 900 : 1600);
+}
+
+function finishQuiz() {
+  const s = loadStats();
+  s.quizzes++;
+  saveStats(s);
+  $('#quiz-play').classList.add('hidden');
+  $('#quiz-result').classList.remove('hidden');
+  const total = quiz.questions.length;
+  const pct = Math.round((quiz.score / total) * 100);
+  const face = pct >= 80 ? '🏆' : pct >= 50 ? '😊' : '💪';
+  $('#quiz-score').innerHTML = `${face}<br>你答啱咗 ${quiz.score} / ${total} 題<br>（${pct} 分）`;
+  if (pct >= 80) { SFX.fireworks(); launchFireworks(2000); }
+  speak(pct >= 80 ? '好叻呀！' : '繼續努力！');
+}
+
+// ---------- 老師報告 ----------
+$('#btn-report-toggle').addEventListener('click', () => {
+  const panel = $('#report-panel');
+  const showing = panel.classList.toggle('hidden');
+  if (!showing) renderReport();
+});
+$('#btn-reset-stats').addEventListener('click', () => {
+  if (!confirm('清除所有測驗紀錄？（開花進度唔受影響）')) return;
+  localStorage.removeItem(STATS_KEY);
+  renderReport();
+});
+
+function renderReport() {
+  const done = loadDone();
+  const flowers = getAllFlowers();
+  const learnedChars = new Set();
+  flowers.forEach(f => { if (done.has(f.id)) f.petals.forEach(p => learnedChars.add(p.char)); });
+
+  const stats = loadStats();
+  const sum = (bucket) => Object.values(bucket).reduce((a, x) => ({ right: a.right + x.right, wrong: a.wrong + x.wrong }), { right: 0, wrong: 0 });
+  const charT = sum(stats.char);
+  const radT = sum(stats.radical);
+  const totalRight = charT.right + radT.right;
+  const totalAns = totalRight + charT.wrong + radT.wrong;
+  const acc = totalAns ? Math.round((totalRight / totalAns) * 100) : 0;
+
+  const topWrong = (bucket) => Object.entries(bucket)
+    .filter(([, v]) => v.wrong > 0)
+    .sort((a, b) => b[1].wrong - a[1].wrong)
+    .slice(0, 5);
+
+  const wrongChars = topWrong(stats.char);
+  const wrongRads = topWrong(stats.radical);
+
+  const listHtml = (entries, suffix) => entries.length
+    ? `<ul class="report-list">${entries.map(([k, v]) => `<li>${k}${suffix || ''}　錯 ${v.wrong} 次（啱 ${v.right}）</li>`).join('')}</ul>`
+    : `<div class="report-empty">未有錯題 🎉</div>`;
+
+  $('#report-content').innerHTML = `
+    <h3>📊 學習報告</h3>
+    <div class="report-stat"><span>已開花</span><span class="v">${flowers.filter(f => done.has(f.id)).length} / ${flowers.length} 朵</span></div>
+    <div class="report-stat"><span>學過嘅字</span><span class="v">${learnedChars.size} 個</span></div>
+    <div class="report-stat"><span>測驗次數</span><span class="v">${stats.quizzes} 次</span></div>
+    <div class="report-stat"><span>測驗總正確率</span><span class="v">${totalAns ? acc + '%' : '—'}（${totalRight}/${totalAns}）</span></div>
+    <h3 style="margin-top:14px">最常錯嘅字</h3>
+    ${listHtml(wrongChars, '')}
+    <h3 style="margin-top:14px">最常錯嘅部首</h3>
+    ${listHtml(wrongRads.map(([k, v]) => [`${k}（${RADICAL_MEANING[k] || ''}）`, v]), '')}
+  `;
+}
+
 // ---------- 啟動 ----------
-renderGarden();
+setGardenMode('family');

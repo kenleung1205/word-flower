@@ -13,14 +13,19 @@
     <h1 id="app-title">🌸 字族開花</h1>
     <nav>
       <button id="nav-garden" class="nav-btn active">🌱 花園</button>
-      <button id="nav-book" class="nav-btn">📖 魔法圖鑑</button>
+      <button id="nav-book" class="nav-btn">📖 圖鑑</button>
+      <button id="nav-quiz" class="nav-btn">🎯 測驗</button>
       <button id="nav-add" class="nav-btn">➕ 加字</button>
     </nav>
   </header>
 
-  <!-- 花園：選擇字族花 -->
+  <!-- 花園：選擇花（字族 / 部首 兩個模式） -->
   <main id="screen-garden" class="screen">
-    <p class="hint">揀一朵花蕾，幫佢開花啦！</p>
+    <div class="mode-tabs">
+      <button id="mode-family" class="mode-tab active">🌸 字族開花</button>
+      <button id="mode-radical" class="mode-tab">🧩 部首開花</button>
+    </div>
+    <p class="hint" id="garden-hint">揀一朵花蕾，幫佢開花啦！</p>
     <div id="garden-grid" class="garden-grid"></div>
   </main>
 
@@ -42,7 +47,39 @@
   <main id="screen-book" class="screen hidden">
     <p class="hint" id="book-hint"></p>
     <div id="book-grid" class="garden-grid"></div>
+
+    <!-- 老師報告 -->
+    <button id="btn-report-toggle" class="report-toggle">📊 老師報告</button>
+    <div id="report-panel" class="report-panel hidden">
+      <div id="report-content"></div>
+      <button id="btn-reset-stats" class="danger-btn">🗑️ 清除測驗紀錄</button>
+    </div>
+
     <button id="btn-reset" class="danger-btn">🔄 重設開花進度</button>
+  </main>
+
+  <!-- 測驗 -->
+  <main id="screen-quiz" class="screen hidden">
+    <div id="quiz-menu">
+      <p class="hint">揀一種測驗，幫小朋友溫習！</p>
+      <div class="quiz-pick">
+        <button class="quiz-type-btn" data-type="word">🔊 聽詞揀字</button>
+        <button class="quiz-type-btn" data-type="radical">🧩 部首配意思</button>
+      </div>
+    </div>
+    <div id="quiz-play" class="hidden">
+      <div id="quiz-progress"></div>
+      <div id="quiz-question"></div>
+      <div id="quiz-options"></div>
+      <p class="hint" id="quiz-feedback"></p>
+    </div>
+    <div id="quiz-result" class="hidden">
+      <div class="quiz-score" id="quiz-score"></div>
+      <div class="quiz-result-btns">
+        <button id="btn-quiz-again">🔁 再玩一次</button>
+        <button id="btn-quiz-menu">↩︎ 揀第二種</button>
+      </div>
+    </div>
   </main>
 
   <!-- 自訂字族 -->
@@ -73,6 +110,32 @@
       <div class="celebrate-btns">
         <button id="btn-next">下一朵花 ➜</button>
         <button id="btn-book">📖 睇圖鑑</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 例詞 / 例句（㩒入個字睇，由老師自己加） -->
+  <div id="examples-modal" class="overlay hidden">
+    <div class="ex-card">
+      <button id="ex-close" class="ex-close" title="關閉">✕</button>
+      <div class="ex-char" id="ex-char"></div>
+      <div class="ex-section">
+        <h3>📚 例詞</h3>
+        <div id="ex-words" class="ex-list"></div>
+      </div>
+      <div class="ex-section">
+        <h3>✏️ 例句</h3>
+        <div id="ex-sentences" class="ex-list"></div>
+      </div>
+      <button id="ex-edit" class="ex-edit-btn">✏️ 編輯例詞例句</button>
+      <div id="ex-edit-area" class="hidden">
+        <label class="ex-label">例詞（每行一個）
+          <textarea id="ex-words-input" rows="3" placeholder="清水&#10;清潔"></textarea>
+        </label>
+        <label class="ex-label">例句（每行一句）
+          <textarea id="ex-sentences-input" rows="3" placeholder="河水好清。"></textarea>
+        </label>
+        <button id="ex-save" class="ex-save-btn">💾 儲存</button>
       </div>
     </div>
   </div>
