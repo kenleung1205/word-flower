@@ -687,6 +687,34 @@ function savePetalsToExisting() {
   startGame(getFamily(editingId));
 }
 
+// ---------- 回顧成朵花 ----------
+function openReview(flower) {
+  if (!flower) return;
+  const kind = flower.mode === 'radical' ? '部首' : '字族';
+  $('#review-title').textContent = `「${flower.base}」${kind}花`;
+  const list = $('#review-list');
+  list.innerHTML = '';
+  flower.petals.forEach((p) => {
+    const row = document.createElement('div');
+    row.className = 'review-row';
+    row.innerHTML = `
+      <span class="r-char" style="color:${flower.color}">${p.char}</span>
+      <span class="r-word">${p.word}</span>
+      <span class="r-emoji">${p.emoji}</span>
+      <span class="r-go">例句 ›</span>`;
+    row.addEventListener('click', () => { speak(`${p.char}，${p.word}`); openExamples(p.char); });
+    list.appendChild(row);
+  });
+  $('#review-modal').classList.remove('hidden');
+}
+
+$('#btn-review').addEventListener('click', () => openReview(current));
+$('#review-close').addEventListener('click', () => $('#review-modal').classList.add('hidden'));
+$('#review-done').addEventListener('click', () => $('#review-modal').classList.add('hidden'));
+$('#review-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'review-modal') $('#review-modal').classList.add('hidden');
+});
+
 // ---------- 例詞 / 例句彈窗 ----------
 let exChar = null;
 
