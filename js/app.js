@@ -1,6 +1,7 @@
 // 字族開花 — 主程式
 const STORAGE_KEY = 'wordFlowerDone';
 const CUSTOM_KEY = 'wordFlowerCustom';
+const EXTRA_KEY = 'wordFlowerExtra'; // 為現有的花（內置或自訂）後加的花瓣 { [familyId]: [petal,...] }
 
 const $ = (sel) => document.querySelector(sel);
 const screens = {
@@ -31,8 +32,25 @@ function loadCustom() {
 function saveCustom(list) {
   localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
 }
+
+// 後加花瓣（任何一朵花都可以加，不限數目）
+function loadExtra() {
+  try { return JSON.parse(localStorage.getItem(EXTRA_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveExtra(map) {
+  localStorage.setItem(EXTRA_KEY, JSON.stringify(map));
+}
+function withExtra(f, extra) {
+  const ex = extra[f.id];
+  return ex && ex.length ? { ...f, petals: [...f.petals, ...ex] } : f;
+}
 function getFamilies() {
-  return [...FAMILIES, ...loadCustom()];
+  const extra = loadExtra();
+  return [...FAMILIES, ...loadCustom()].map(f => withExtra(f, extra));
+}
+function getFamily(id) {
+  return getFamilies().find(f => f.id === id) || null;
 }
 
 // ---------- 畫面切換 ----------
@@ -43,12 +61,11 @@ function show(name) {
   $('#nav-add').classList.toggle('active', name === 'add');
   if (name === 'garden') renderGarden();
   if (name === 'book') renderBook();
-  if (name === 'add') initAddForm();
 }
 
 $('#nav-garden').addEventListener('click', () => show('garden'));
 $('#nav-book').addEventListener('click', () => show('book'));
-$('#nav-add').addEventListener('click', () => show('add'));
+$('#nav-add').addEventListener('click', () => openAddNew());
 $('#btn-back').addEventListener('click', () => show('garden'));
 
 // ---------- 花園（選關） ----------
@@ -65,6 +82,18 @@ function renderGarden() {
       <div class="chars">${done.has(f.id) ? f.petals.map(p => p.char).join('') : ''}</div>
       <div class="status">${done.has(f.id) ? '已開花！再玩一次？' : '輕按開始'}</div>`;
     card.addEventListener('click', () => startGame(f));
+
+    // 每朵花都可以加花瓣
+    const addP = document.createElement('button');
+    addP.className = 'add-petal-btn';
+    addP.textContent = '＋';
+    addP.title = '加多塊花瓣';
+    addP.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openAddPetals(f.id);
+    });
+    card.appendChild(addP);
+
     if (f.custom) {
       const del = document.createElement('button');
       del.className = 'del-btn';
@@ -141,7 +170,10 @@ function buildTray() {
   const tray = $('#tray');
   tray.innerHTML = '';
   const TILE_COLORS = ['#ff8fab', '#74c0fc', '#ffd43b', '#8ce99a', '#b197fc', '#ffa94d', '#63e6be'];
-  const radicals = [...current.petals.map(p => p.radical), ...(current.distractors || [])];
+  const petalRadicals = current.petals.map(p => p.radical);
+  const used = new Set(petalRadicals);
+  const distractors = (current.distractors || []).filter(r => !used.has(r));
+  const radicals = [...petalRadicals, ...distractors];
   radicals.sort(() => Math.random() - 0.5);
   radicals.forEach((r, i) => {
     const tile = document.createElement('div');
@@ -380,9 +412,10 @@ $('#btn-reset').addEventListener('click', () => {
   renderBook();
 });
 
-// ---------- 自訂字族（加新字） ----------
-const PETAL_LIMIT = 6;
+// ---------- 自訂字族 / 加花瓣 ----------
 const CUSTOM_COLORS = ['#e8590c', '#1098ad', '#9c36b5', '#2f9e44', '#e64980', '#5f3dc4'];
+
+let editingId = null; // null = 整新花；否則 = 為呢朵現有花加花瓣
 
 function makeRow(values = {}) {
   const row = document.createElement('div');
@@ -399,32 +432,56 @@ function makeRow(values = {}) {
   return row;
 }
 
-function initAddForm() {
+function resetRows(n = 3) {
   const rows = $('#add-rows');
-  if (rows.children.length === 0) {
-    for (let i = 0; i < 3; i++) rows.appendChild(makeRow());
-  }
+  rows.innerHTML = '';
+  for (let i = 0; i < n; i++) rows.appendChild(makeRow());
+}
+
+// 整一朵全新嘅花
+function openAddNew() {
+  editingId = null;
+  $('#add-hint').textContent = '自己種一朵新嘅字族花！輸入花心字，再加花瓣（部首 + 新字）。';
+  const base = $('#add-base');
+  base.value = '';
+  base.disabled = false;
+  $('#add-existing').classList.add('hidden');
+  $('#add-existing').innerHTML = '';
+  $('#btn-save-family').textContent = '💾 儲存呢朵花';
+  resetRows(3);
+  show('add');
+}
+
+// 為現有嘅花加多啲花瓣
+function openAddPetals(id) {
+  const family = getFamily(id);
+  if (!family) return;
+  editingId = id;
+  $('#add-hint').textContent = `為「${family.base}」字族花加多啲花瓣！部首唔可以同已有嘅重複。`;
+  const base = $('#add-base');
+  base.value = family.base;
+  base.disabled = true;
+  const existing = $('#add-existing');
+  existing.classList.remove('hidden');
+  existing.innerHTML = '已有：' +
+    family.petals.map(p => `<span class="chip">${p.radical}→${p.char}</span>`).join('');
+  $('#btn-save-family').textContent = '💾 加落呢朵花';
+  resetRows(2);
+  show('add');
 }
 
 $('#btn-add-row').addEventListener('click', () => {
-  const rows = $('#add-rows');
-  if (rows.children.length >= PETAL_LIMIT) {
-    alert(`最多 ${PETAL_LIMIT} 塊花瓣呀！`);
-    return;
-  }
-  rows.appendChild(makeRow());
+  $('#add-rows').appendChild(makeRow());
 });
 
-$('#btn-save-family').addEventListener('click', () => {
-  const base = $('#add-base').value.trim();
-  if (!base) { alert('要填花心字呀！'); return; }
-
+// 由表單收集花瓣；error 回傳字串，成功回傳陣列
+function collectPetals() {
   const petals = [];
   for (const row of $('#add-rows').children) {
     const radical = row.querySelector('.in-radical').value.trim();
     const char = row.querySelector('.in-char').value.trim();
     if (!radical && !char) continue; // 空行跳過
-    if (!radical || !char) { alert('每塊花瓣都要有「部首」同「新字」呀！'); return; }
+    if (!radical || !char) return '每塊花瓣都要有「部首」同「新字」呀！';
     petals.push({
       radical,
       char,
@@ -432,6 +489,20 @@ $('#btn-save-family').addEventListener('click', () => {
       emoji: row.querySelector('.in-emoji').value.trim() || '🌟',
     });
   }
+  return petals;
+}
+
+$('#btn-save-family').addEventListener('click', () => {
+  if (editingId) return savePetalsToExisting();
+  saveNewFamily();
+});
+
+function saveNewFamily() {
+  const base = $('#add-base').value.trim();
+  if (!base) { alert('要填花心字呀！'); return; }
+
+  const petals = collectPetals();
+  if (typeof petals === 'string') { alert(petals); return; }
   if (petals.length < 2) { alert('至少要兩塊花瓣先開到花呀！'); return; }
   if (new Set(petals.map(p => p.radical)).size !== petals.length) {
     alert('每塊花瓣嘅部首唔可以重複呀！');
@@ -450,11 +521,41 @@ $('#btn-save-family').addEventListener('click', () => {
   custom.push(family);
   saveCustom(custom);
 
-  // 清空表單，即刻試玩
   $('#add-base').value = '';
-  $('#add-rows').innerHTML = '';
+  resetRows(3);
   startGame(family);
-});
+}
+
+function savePetalsToExisting() {
+  const family = getFamily(editingId);
+  if (!family) { openAddNew(); return; }
+
+  const petals = collectPetals();
+  if (typeof petals === 'string') { alert(petals); return; }
+  if (petals.length < 1) { alert('填至少一塊新花瓣先得呀！'); return; }
+
+  // 部首唔可以同呢朵花已有嘅、或者新加嘅重複
+  const existingRadicals = new Set(family.petals.map(p => p.radical));
+  const newRadicals = new Set();
+  for (const p of petals) {
+    if (existingRadicals.has(p.radical) || newRadicals.has(p.radical)) {
+      alert(`部首「${p.radical}」喺呢朵花已經有喇，唔可以重複！`);
+      return;
+    }
+    newRadicals.add(p.radical);
+  }
+
+  const extra = loadExtra();
+  extra[editingId] = [...(extra[editingId] || []), ...petals];
+  saveExtra(extra);
+
+  // 加咗新花瓣，等佢可以重新開花
+  const done = loadDone();
+  done.delete(editingId);
+  saveDone(done);
+
+  startGame(getFamily(editingId));
+}
 
 // ---------- 啟動 ----------
 renderGarden();

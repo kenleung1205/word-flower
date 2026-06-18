@@ -47,11 +47,12 @@
 
   <!-- 自訂字族 -->
   <main id="screen-add" class="screen hidden">
-    <p class="hint">自己種一朵新嘅字族花！輸入花心字，再加花瓣（部首 + 新字）。</p>
+    <p class="hint" id="add-hint">自己種一朵新嘅字族花！輸入花心字，再加花瓣（部首 + 新字）。</p>
     <div class="add-form">
       <label class="base-label">花心字
         <input id="add-base" maxlength="1" placeholder="例：青" />
       </label>
+      <div id="add-existing" class="add-existing hidden"></div>
       <div class="row-head">
         <span>部首</span><span>新字</span><span>詞語</span><span>emoji</span><span></span>
       </div>
