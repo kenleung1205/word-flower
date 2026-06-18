@@ -934,9 +934,11 @@ function renderQuestion() {
 
   const qBox = $('#quiz-question');
   if (q.kind === 'char') {
+    // 讀「果汁嘅汁」，指明係詞語入面邊個字
+    const phrase = `${q.prompt.word}嘅${q.answer}`;
     qBox.innerHTML = `聽下，撳啱嘅字：<button class="quiz-replay" id="quiz-replay">🔊 再聽一次</button>`;
-    $('#quiz-replay').addEventListener('click', () => speak(q.prompt.word));
-    speak(q.prompt.word);
+    $('#quiz-replay').addEventListener('click', () => speak(phrase));
+    speak(phrase);
   } else {
     qBox.innerHTML = `<span class="big">${q.prompt.radical}</span>呢個部首同咩有關？`;
   }
@@ -956,6 +958,8 @@ function answerQuestion(btn, opt, q) {
   const buttons = [...$('#quiz-options').children];
   buttons.forEach(b => { b.disabled = true; });
   const correct = opt === q.answer;
+  q.chosen = opt;      // 記低揀咗咩，畀完成後回顧用
+  q.gotRight = correct;
   recordAnswer(q.kind, q.key, correct);
 
   if (correct) {
@@ -963,7 +967,7 @@ function answerQuestion(btn, opt, q) {
     quiz.score++;
     SFX.ding();
     $('#quiz-feedback').textContent = '叮！啱晒！👍';
-    if (q.kind === 'char') speak(q.answer);
+    if (q.kind === 'char') speak(`${q.prompt.word}嘅${q.answer}`);
   } else {
     btn.classList.add('wrong');
     buttons.find(b => b.textContent === q.answer)?.classList.add('correct');
@@ -990,8 +994,32 @@ function finishQuiz() {
   const pct = Math.round((quiz.score / total) * 100);
   const face = pct >= 80 ? '🏆' : pct >= 50 ? '😊' : '💪';
   $('#quiz-score').innerHTML = `${face}<br>你答啱咗 ${quiz.score} / ${total} 題<br>（${pct} 分）`;
+  renderQuizReview();
   if (pct >= 80) { SFX.fireworks(); launchFireworks(2000); }
   speak(pct >= 80 ? '好叻呀！' : '繼續努力！');
+}
+
+// 完成後即時回顧：逐題睇啱定錯、正確答案、自己揀咗咩
+function renderQuizReview() {
+  const box = $('#quiz-review');
+  box.innerHTML = '<h3 class="qr-title">📋 即時回顧（㩒一㩒再聽）</h3>';
+  quiz.questions.forEach((q, i) => {
+    const ok = q.gotRight;
+    const row = document.createElement('div');
+    row.className = 'qr-row ' + (ok ? 'ok' : 'no');
+    const qText = q.kind === 'char' ? `${q.prompt.word}嘅${q.answer}` : `${q.prompt.radical}`;
+    const ansLabel = q.kind === 'char' ? `答案：${q.answer}` : `${q.prompt.radical}${q.answer}`;
+    const wrongLabel = ok ? '' : `（你揀咗：${q.chosen}）`;
+    row.innerHTML = `
+      <span class="qr-mark">${ok ? '✓' : '✗'}</span>
+      <span class="qr-q">${i + 1}. ${qText}</span>
+      <span class="qr-a">${ansLabel}${wrongLabel}</span>`;
+    if (q.kind === 'char') {
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => speak(`${q.prompt.word}嘅${q.answer}`));
+    }
+    box.appendChild(row);
+  });
 }
 
 // ---------- 老師報告 ----------
