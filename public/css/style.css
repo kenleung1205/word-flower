@@ -658,6 +658,7 @@ nav { display: flex; gap: 8px; }
 .write-char-name { font-size: 1.3rem; color: #d6336c; margin-bottom: 12px; }
 /* 米字格輔助線 */
 #write-grid {
+  position: relative;
   width: min(72vw, 300px);
   height: min(72vw, 300px);
   margin: 0 auto;
@@ -673,7 +674,9 @@ nav { display: flex; gap: 8px; }
   background-repeat: no-repeat;
   background-position: center, center, center, center;
 }
-#write-target { width: 100%; height: 100%; }
+#write-target { position: absolute; inset: 0; }
+/* 自由書寫畫布：叠喺示範輪廓之上，保留小朋友寫嘅筆劃 */
+#write-pad { position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
 .write-feedback { min-height: 1.4em; margin: 12px 0 4px; font-size: 1.1rem; color: #2b8a3e; }
 .write-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .write-btns button {
@@ -681,7 +684,7 @@ nav { display: flex; gap: 8px; }
   font-family: inherit; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.12);
 }
 #write-demo { background: #d0ebff; }
-#write-quiz { background: #ffd166; }
+#write-clear { background: #ffe3ec; }
 #write-again { background: #e9ecef; }
 .write-fallback {
   display: flex; align-items: center; justify-content: center;

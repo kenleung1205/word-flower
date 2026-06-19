@@ -882,10 +882,16 @@ $('#ex-save').addEventListener('click', async () => {
 // ---------- 學寫字（筆順示範 + 描寫，由 Hanzi Writer 提供）----------
 let writer = null;
 let writeChar = null;
+let padCtx = null;
+let drawing = false;
 
 function clearWriter() {
   if (writer) { try { writer.cancelQuiz(); } catch {} writer = null; }
   $('#write-target').innerHTML = '';
+}
+function clearPad() {
+  const pad = $('#write-pad');
+  if (padCtx) padCtx.clearRect(0, 0, pad.width, pad.height);
 }
 
 function openWrite(char) {
@@ -893,10 +899,25 @@ function openWrite(char) {
   if (typeof HanziWriter === 'undefined') { alert('學寫字功能載入唔到，請檢查網絡 🙏'); return; }
   writeChar = char;
   $('#write-char-name').textContent = `學寫「${char}」字`;
-  $('#write-feedback').textContent = '';
+  $('#write-feedback').textContent = '照住格仔自己寫，寫成點都得 ✍️';
   clearWriter();
   $('#write-modal').classList.remove('hidden');
   const size = $('#write-grid').clientWidth || Math.round(Math.min(window.innerWidth * 0.72, 300));
+
+  // 自由書寫畫布：保留小朋友寫嘅筆劃，唔會幫佢修正
+  const dpr = window.devicePixelRatio || 1;
+  const pad = $('#write-pad');
+  pad.width = size * dpr;
+  pad.height = size * dpr;
+  pad.style.width = size + 'px';
+  pad.style.height = size + 'px';
+  padCtx = pad.getContext('2d');
+  padCtx.scale(dpr, dpr);
+  padCtx.lineCap = 'round';
+  padCtx.lineJoin = 'round';
+  padCtx.lineWidth = Math.max(8, size * 0.045);
+  padCtx.strokeStyle = '#1971c2';
+
   let failed = false;
   writer = HanziWriter.create($('#write-target'), char, {
     width: size,
@@ -904,41 +925,50 @@ function openWrite(char) {
     padding: 5,
     showCharacter: false,
     showOutline: true,
+    outlineColor: '#f0c9d6',
+    strokeColor: '#d6336c',
     strokeAnimationSpeed: 1,
     delayBetweenStrokes: 250,
-    strokeColor: '#d6336c',
-    drawingColor: '#1971c2',
-    drawingWidth: 28,
-    showHintAfterMisses: 2,
-    leniency: 1.3,
     onLoadCharDataError: () => {
       failed = true;
       clearWriter();
       $('#write-target').innerHTML = `<div class="write-fallback">${char}</div>`;
-      $('#write-feedback').textContent = '呢個字未有筆順資料，淨係睇下個樣 🙂';
+      $('#write-feedback').textContent = '呢個字未有筆順資料，照住個樣自己寫啦 🙂';
     },
   });
-  // 開窗即示範一次
+  // 開窗即示範一次筆順
   setTimeout(() => { if (!failed && writer) writer.animateCharacter(); }, 300);
 }
 
 function closeWrite() { $('#write-modal').classList.add('hidden'); clearWriter(); }
 
-$('#write-demo').addEventListener('click', () => { if (writer) writer.animateCharacter(); });
-$('#write-quiz').addEventListener('click', () => {
-  if (!writer) return;
-  $('#write-feedback').textContent = '用手指照住格仔寫 ✍️';
-  writer.quiz({
-    onCorrectStroke: () => SFX.ding(),
-    onMistake: () => { $('#write-feedback').textContent = '差少少，再試多次 💪'; },
-    onComplete: () => {
-      $('#write-feedback').textContent = '🎉 寫啱晒！';
-      SFX.fireworks();
-      launchFireworks(1500);
-      speak(writeChar);
-    },
+// 畫布手寫：㩒住拖就畫，原汁原味保留小朋友寫嘅筆劃
+(function setupWritePad() {
+  const pad = $('#write-pad');
+  const at = (e) => { const r = pad.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  pad.addEventListener('pointerdown', (e) => {
+    if (!padCtx) return;
+    drawing = true;
+    try { pad.setPointerCapture(e.pointerId); } catch {}
+    const p = at(e);
+    padCtx.beginPath();
+    padCtx.moveTo(p.x, p.y);
+    padCtx.lineTo(p.x + 0.01, p.y + 0.01); // 㩒一下都見到一點
+    padCtx.stroke();
   });
-});
+  pad.addEventListener('pointermove', (e) => {
+    if (!drawing || !padCtx) return;
+    const p = at(e);
+    padCtx.lineTo(p.x, p.y);
+    padCtx.stroke();
+  });
+  const stop = () => { drawing = false; };
+  pad.addEventListener('pointerup', stop);
+  pad.addEventListener('pointercancel', stop);
+})();
+
+$('#write-demo').addEventListener('click', () => { if (!writer) return; clearPad(); speak(writeChar); writer.animateCharacter(); });
+$('#write-clear').addEventListener('click', clearPad);
 $('#write-again').addEventListener('click', () => { if (writeChar) openWrite(writeChar); });
 $('#write-close').addEventListener('click', closeWrite);
 $('#write-modal').addEventListener('click', (e) => { if (e.target.id === 'write-modal') closeWrite(); });
