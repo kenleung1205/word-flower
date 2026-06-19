@@ -51,21 +51,16 @@ async function loadContent() {
   remote.examples = remote.examples || {};
 }
 
-// 寫入要老師密碼（header X-Write-Key）
+// 寫入：暫時取消老師密碼，唔再 prompt。
+// 將來恢復時：把 prompt 解返封，apiWrite 改返「冇 key 就 throw」，再喺 Worker set WRITE_KEY secret。
 function getWriteKey() {
-  let k = localStorage.getItem(WRITE_KEY_STORE);
-  if (!k) {
-    k = (prompt('請輸入老師密碼（之後先可以加字／改例句）：') || '').trim();
-    if (k) localStorage.setItem(WRITE_KEY_STORE, k);
-  }
-  return k;
+  return localStorage.getItem(WRITE_KEY_STORE) || '';
 }
 async function apiWrite(path, method, body) {
   const key = getWriteKey();
-  if (!key) throw new Error('需要老師密碼');
   const r = await fetch('/api' + path, {
     method,
-    headers: { 'Content-Type': 'application/json', 'X-Write-Key': key },
+    headers: { 'Content-Type': 'application/json', ...(key ? { 'X-Write-Key': key } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (r.status === 401) {

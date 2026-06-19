@@ -30,8 +30,11 @@ export default {
 };
 
 function authorized(request, env) {
+  // 暫時取消老師密碼：未 set WRITE_KEY secret 時，寫入開放。
+  // 將來 `wrangler secret put WRITE_KEY` set 返 secret，就自動恢復閘住。
+  if (!env.WRITE_KEY) return true;
   const key = request.headers.get('X-Write-Key') || '';
-  return Boolean(env.WRITE_KEY) && key === env.WRITE_KEY;
+  return key === env.WRITE_KEY;
 }
 
 async function handleApi(request, env, url) {
