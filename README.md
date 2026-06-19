@@ -32,20 +32,38 @@
 
 ## 技術
 
-- 純 HTML / CSS / JavaScript，無 build step、無依賴
-- Pointer Events 拖曳（觸控 + 滑鼠通用）
-- Web Audio API 合成音效（毋須音訊檔）
-- Web Speech API 粵語讀字（zh-HK）
-- `localStorage` 儲存圖鑑進度
-- Canvas 煙花動畫
+- 前端：純 HTML / CSS / JavaScript（`public/`），無 build step、無依賴
+- Pointer Events 拖曳、Web Audio 音效、Web Speech 粵語讀字（zh-HK）、Canvas 煙花
+- 後端：**Cloudflare Worker（`worker.js`）+ D1**，同一個 Worker 派靜態網頁兼做 API
+- **資料拆分**：
+  - **共享內容**（自訂花、後加字、例詞例句）→ D1，經 `/api/content` 人人讀到
+  - **個人進度 / 測驗紀錄** → 留喺各自瀏覽器嘅 `localStorage`
+- **寫入要老師密碼**：`POST/DELETE` 要 header `X-Write-Key` 對 `WRITE_KEY` secret。將來變正式 app 時，把呢個檢查換成登入／admin 即可，API 形狀不變。
+
+## API
+
+| 方法 | 路徑 | 權限 | 用途 |
+|------|------|------|------|
+| GET | `/api/content` | 公開 | 攞所有共享內容 `{flowers, extra, examples}` |
+| POST | `/api/flowers` | 密碼 | 新增／覆寫自訂花 |
+| DELETE | `/api/flowers/:id` | 密碼 | 刪除自訂花 |
+| POST | `/api/petals` | 密碼 | 為現有花加字 `{flowerId, petals}` |
+| POST | `/api/examples` | 密碼 | 例詞例句 upsert `{char, words, sentences}` |
 
 ## 本地運行
 
 ```bash
-npx serve .
-# 或直接用瀏覽器開 index.html
+npm install
+npm run db:init:local      # 喺本地 D1 建表
+npm run dev                # wrangler dev（網頁 + API 一齊）
 ```
 
-## 部署
+## 部署（Cloudflare）
 
-Static site，直接由 Vercel deploy，毋須任何設定。
+```bash
+npx wrangler login                       # 登入 Cloudflare（互動）
+npx wrangler d1 create word-flower-db    # 建 D1，將 database_id 填返入 wrangler.jsonc
+npm run db:init                          # 喺雲端 D1 建表
+npx wrangler secret put WRITE_KEY        # 設定老師密碼
+npm run deploy                           # 部署
+```

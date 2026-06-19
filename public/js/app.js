@@ -30,23 +30,55 @@ function saveDone(done) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...done]));
 }
 
-// 自訂字族（「➕ 加字」頁面整嘅花）
-function loadCustom() {
-  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]'); }
-  catch { return []; }
-}
-function saveCustom(list) {
-  localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
+// ---------- 共享內容（雲端 D1，經 /api/content）----------
+// flowers = 自訂花；extra = 為現有花後加嘅字；examples = 例詞例句
+let remote = { flowers: [], extra: {}, examples: {} };
+const CACHE_KEY = 'wordFlowerCache';          // 離線快取
+const WRITE_KEY_STORE = 'wordFlowerWriteKey'; // 老師密碼（本機記住）
+
+async function loadContent() {
+  try {
+    const r = await fetch('/api/content', { cache: 'no-store' });
+    if (!r.ok) throw new Error('bad status');
+    remote = await r.json();
+    localStorage.setItem(CACHE_KEY, JSON.stringify(remote));
+  } catch {
+    // 連唔到就用上次嘅快取頂住（離線都睇到內容）
+    try { remote = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { remote = {}; }
+  }
+  remote.flowers = remote.flowers || [];
+  remote.extra = remote.extra || {};
+  remote.examples = remote.examples || {};
 }
 
-// 後加花瓣（任何一朵花都可以加，不限數目）
-function loadExtra() {
-  try { return JSON.parse(localStorage.getItem(EXTRA_KEY) || '{}'); }
-  catch { return {}; }
+// 寫入要老師密碼（header X-Write-Key）
+function getWriteKey() {
+  let k = localStorage.getItem(WRITE_KEY_STORE);
+  if (!k) {
+    k = (prompt('請輸入老師密碼（之後先可以加字／改例句）：') || '').trim();
+    if (k) localStorage.setItem(WRITE_KEY_STORE, k);
+  }
+  return k;
 }
-function saveExtra(map) {
-  localStorage.setItem(EXTRA_KEY, JSON.stringify(map));
+async function apiWrite(path, method, body) {
+  const key = getWriteKey();
+  if (!key) throw new Error('需要老師密碼');
+  const r = await fetch('/api' + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Write-Key': key },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 401) {
+    localStorage.removeItem(WRITE_KEY_STORE);
+    throw new Error('老師密碼唔啱，請再試過');
+  }
+  if (!r.ok) throw new Error('儲存失敗（' + r.status + '）');
+  return r.json().catch(() => ({}));
 }
+
+// 自訂花同後加字：而家由雲端 remote（記憶體）提供
+function loadCustom() { return remote.flowers || []; }
+function loadExtra() { return remote.extra || {}; }
 function withExtra(f, extra) {
   const ex = extra[f.id];
   return ex && ex.length ? { ...f, petals: [...f.petals, ...ex] } : f;
@@ -135,14 +167,8 @@ function findFlower(id) {
   return getAllFlowers().find(f => f.id === id) || null;
 }
 
-// ---------- 例詞 / 例句 ----------
-function loadExamples() {
-  try { return JSON.parse(localStorage.getItem(EXAMPLES_KEY) || '{}'); }
-  catch { return {}; }
-}
-function saveExamples(map) {
-  localStorage.setItem(EXAMPLES_KEY, JSON.stringify(map));
-}
+// ---------- 例詞 / 例句（由雲端 remote 提供）----------
+function loadExamples() { return remote.examples || {}; }
 
 // ---------- 測驗統計 ----------
 function loadStats() {
@@ -237,14 +263,18 @@ function renderGarden() {
       del.className = 'del-btn';
       del.textContent = '✕';
       del.title = '刪除呢朵花';
-      del.addEventListener('click', (e) => {
+      del.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (!confirm(`刪除「${f.base}」${kind}花？`)) return;
-        saveCustom(loadCustom().filter(c => c.id !== f.id));
-        const d = loadDone();
-        d.delete(f.id);
-        saveDone(d);
-        renderGarden();
+        if (!confirm(`刪除「${f.base}」${kind}花？（會喺所有人嗰度刪除）`)) return;
+        try {
+          await apiWrite('/flowers/' + encodeURIComponent(f.id), 'DELETE');
+          remote.flowers = remote.flowers.filter(c => c.id !== f.id);
+          delete remote.extra[f.id];
+          const d = loadDone();
+          d.delete(f.id);
+          saveDone(d);
+          renderGarden();
+        } catch (err) { alert(err.message); }
       });
       card.appendChild(del);
     }
@@ -706,7 +736,7 @@ $('#btn-save-family').addEventListener('click', () => {
   saveNewFamily();
 });
 
-function saveNewFamily() {
+async function saveNewFamily() {
   const w = ADD_WORDS[addMode];
   const base = $('#add-base').value.trim();
   if (!base) { alert(`要填${w.base}呀！`); return; }
@@ -720,8 +750,7 @@ function saveNewFamily() {
   }
 
   const isRadical = addMode === 'radical';
-  const custom = loadCustom();
-  const sameKind = custom.filter(c => (c.mode === 'radical') === isRadical).length;
+  const sameKind = remote.flowers.filter(c => (c.mode === 'radical') === isRadical).length;
   const family = {
     id: 'custom-' + Date.now(),
     base,
@@ -731,15 +760,17 @@ function saveNewFamily() {
     custom: true,
     ...(isRadical ? { mode: 'radical' } : {}),
   };
-  custom.push(family);
-  saveCustom(custom);
 
-  $('#add-base').value = '';
-  resetRows(3);
-  startGame(family);
+  try {
+    await apiWrite('/flowers', 'POST', family);
+    remote.flowers.push(family);
+    $('#add-base').value = '';
+    resetRows(3);
+    startGame(family);
+  } catch (err) { alert(err.message); }
 }
 
-function savePetalsToExisting() {
+async function savePetalsToExisting() {
   const flower = findFlower(editingId);
   if (!flower) { openAddNew(); return; }
   addMode = flower.mode === 'radical' ? 'radical' : 'family';
@@ -760,16 +791,15 @@ function savePetalsToExisting() {
     fresh.add(p.radical);
   }
 
-  const extra = loadExtra();
-  extra[editingId] = [...(extra[editingId] || []), ...petals];
-  saveExtra(extra);
-
-  // 加咗新字，等佢可以重新開花
-  const done = loadDone();
-  done.delete(editingId);
-  saveDone(done);
-
-  startGame(findFlower(editingId));
+  try {
+    await apiWrite('/petals', 'POST', { flowerId: editingId, petals });
+    remote.extra[editingId] = [...(remote.extra[editingId] || []), ...petals];
+    // 加咗新字，等佢可以重新開花
+    const done = loadDone();
+    done.delete(editingId);
+    saveDone(done);
+    startGame(findFlower(editingId));
+  } catch (err) { alert(err.message); }
 }
 
 // ---------- 回顧成朵花 ----------
@@ -840,16 +870,16 @@ $('#examples-modal').addEventListener('click', (e) => {
   if (e.target.id === 'examples-modal') $('#examples-modal').classList.add('hidden');
 });
 $('#ex-edit').addEventListener('click', () => $('#ex-edit-area').classList.toggle('hidden'));
-$('#ex-save').addEventListener('click', () => {
+$('#ex-save').addEventListener('click', async () => {
   if (!exChar) return;
   const parse = (v) => v.split('\n').map(s => s.trim()).filter(Boolean);
-  const map = loadExamples();
-  map[exChar] = {
-    words: parse($('#ex-words-input').value),
-    sentences: parse($('#ex-sentences-input').value),
-  };
-  saveExamples(map);
-  openExamples(exChar); // 重新渲染
+  const words = parse($('#ex-words-input').value);
+  const sentences = parse($('#ex-sentences-input').value);
+  try {
+    await apiWrite('/examples', 'POST', { char: exChar, words, sentences });
+    remote.examples[exChar] = { words, sentences };
+    openExamples(exChar); // 重新渲染
+  } catch (err) { alert(err.message); }
 });
 
 // ---------- 測驗 ----------
@@ -1074,4 +1104,8 @@ function renderReport() {
 }
 
 // ---------- 啟動 ----------
-setGardenMode('family');
+(async function init() {
+  $('#garden-hint').textContent = '載入緊大家加嘅花……';
+  await loadContent();        // 先載入雲端共享內容
+  setGardenMode('family');    // 再render（之後讀 remote 都係同步）
+})();

@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "word-flower",
+  "main": "worker.js",
+  "compatibility_date": "2026-06-01",
+  // 派靜態網頁（public/ 入面嘅 HTML/CSS/JS）
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  // 獨立 D1 資料庫（同其他 project 無關）。database_id 喺 `wrangler d1 create` 之後填返。
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "word-flower-db",
+      "database_id": "bf1a88bb-4a0e-4099-8b90-4ae9f24b15e2"
+    }
+  ],
+  "observability": { "enabled": true }
+}
