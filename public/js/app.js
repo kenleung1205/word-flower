@@ -811,8 +811,10 @@ function openReview(flower) {
       <span class="r-char" style="color:${flower.color}">${p.char}</span>
       <span class="r-word">${p.word}</span>
       <span class="r-emoji">${p.emoji}</span>
+      <span class="r-write">寫字 ›</span>
       <span class="r-go">例句 ›</span>`;
     row.addEventListener('click', () => { speak(`${p.char}，${p.word}`); openExamples(p.char); });
+    row.querySelector('.r-write').addEventListener('click', (e) => { e.stopPropagation(); openWrite(p.char); });
     list.appendChild(row);
   });
   $('#review-modal').classList.remove('hidden');
@@ -876,6 +878,71 @@ $('#ex-save').addEventListener('click', async () => {
     openExamples(exChar); // 重新渲染
   } catch (err) { alert(err.message); }
 });
+
+// ---------- 學寫字（筆順示範 + 描寫，由 Hanzi Writer 提供）----------
+let writer = null;
+let writeChar = null;
+
+function clearWriter() {
+  if (writer) { try { writer.cancelQuiz(); } catch {} writer = null; }
+  $('#write-target').innerHTML = '';
+}
+
+function openWrite(char) {
+  if (!char) return;
+  if (typeof HanziWriter === 'undefined') { alert('學寫字功能載入唔到，請檢查網絡 🙏'); return; }
+  writeChar = char;
+  $('#write-char-name').textContent = `學寫「${char}」字`;
+  $('#write-feedback').textContent = '';
+  clearWriter();
+  $('#write-modal').classList.remove('hidden');
+  const size = $('#write-grid').clientWidth || Math.round(Math.min(window.innerWidth * 0.72, 300));
+  let failed = false;
+  writer = HanziWriter.create($('#write-target'), char, {
+    width: size,
+    height: size,
+    padding: 5,
+    showCharacter: false,
+    showOutline: true,
+    strokeAnimationSpeed: 1,
+    delayBetweenStrokes: 250,
+    strokeColor: '#d6336c',
+    drawingColor: '#1971c2',
+    drawingWidth: 28,
+    showHintAfterMisses: 2,
+    leniency: 1.3,
+    onLoadCharDataError: () => {
+      failed = true;
+      clearWriter();
+      $('#write-target').innerHTML = `<div class="write-fallback">${char}</div>`;
+      $('#write-feedback').textContent = '呢個字未有筆順資料，淨係睇下個樣 🙂';
+    },
+  });
+  // 開窗即示範一次
+  setTimeout(() => { if (!failed && writer) writer.animateCharacter(); }, 300);
+}
+
+function closeWrite() { $('#write-modal').classList.add('hidden'); clearWriter(); }
+
+$('#write-demo').addEventListener('click', () => { if (writer) writer.animateCharacter(); });
+$('#write-quiz').addEventListener('click', () => {
+  if (!writer) return;
+  $('#write-feedback').textContent = '用手指照住格仔寫 ✍️';
+  writer.quiz({
+    onCorrectStroke: () => SFX.ding(),
+    onMistake: () => { $('#write-feedback').textContent = '差少少，再試多次 💪'; },
+    onComplete: () => {
+      $('#write-feedback').textContent = '🎉 寫啱晒！';
+      SFX.fireworks();
+      launchFireworks(1500);
+      speak(writeChar);
+    },
+  });
+});
+$('#write-again').addEventListener('click', () => { if (writeChar) openWrite(writeChar); });
+$('#write-close').addEventListener('click', closeWrite);
+$('#write-modal').addEventListener('click', (e) => { if (e.target.id === 'write-modal') closeWrite(); });
+$('#ex-write').addEventListener('click', () => openWrite(exChar));
 
 // ---------- 測驗 ----------
 const QUIZ_LEN = 8;

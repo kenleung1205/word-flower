@@ -140,6 +140,7 @@
         <h3>✏️ 例句</h3>
         <div id="ex-sentences" class="ex-list"></div>
       </div>
+      <button id="ex-write" class="ex-write-btn">✍️ 學寫字</button>
       <button id="ex-edit" class="ex-edit-btn">✏️ 編輯例詞例句</button>
       <div id="ex-edit-area" class="hidden">
         <label class="ex-label">例詞（每行一個）
@@ -153,8 +154,24 @@
     </div>
   </div>
 
+  <!-- 學寫字（筆順示範 + 描寫測驗，由 Hanzi Writer 提供） -->
+  <div id="write-modal" class="overlay hidden">
+    <div class="write-card">
+      <button id="write-close" class="ex-close" title="關閉">✕</button>
+      <div id="write-char-name" class="write-char-name"></div>
+      <div id="write-grid"><div id="write-target"></div></div>
+      <p id="write-feedback" class="write-feedback"></p>
+      <div class="write-btns">
+        <button id="write-demo">▶︎ 睇示範</button>
+        <button id="write-quiz">✍️ 我試吓寫</button>
+        <button id="write-again">↻ 再嚟</button>
+      </div>
+    </div>
+  </div>
+
   <canvas id="fireworks"></canvas>
 
+  <script src="js/hanzi-writer.min.js"></script>
   <script src="js/data.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/app.js"></script>

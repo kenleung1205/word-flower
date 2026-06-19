@@ -598,6 +598,7 @@ nav { display: flex; gap: 8px; }
 .review-row .r-word { font-size: 1.1rem; color: #555; flex: 1; }
 .review-row .r-emoji { font-size: 1.6rem; }
 .review-row .r-go { color: #1971c2; font-size: .85rem; }
+.review-row .r-write { color: #d6336c; font-size: .85rem; white-space: nowrap; }
 
 .ex-card {
   background: #fff;
@@ -634,4 +635,55 @@ nav { display: flex; gap: 8px; }
 .ex-save-btn {
   margin-top: 12px; width: 100%; border: none; background: #ffd166;
   border-radius: 12px; padding: 12px; font-size: 1.05rem; font-family: inherit; cursor: pointer;
+}
+.ex-write-btn {
+  margin-top: 16px; width: 100%; border: none; background: #ffe3ec; color: #d6336c;
+  border-radius: 12px; padding: 10px; font-size: 1rem; font-family: inherit; cursor: pointer;
+}
+
+/* ---------- 學寫字 ---------- */
+#write-modal { z-index: 110; } /* 要叠喺例詞例句彈窗（100）之上 */
+.write-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 24px;
+  width: 90vw;
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+  text-align: center;
+  animation: petal-pop .4s ease;
+}
+.write-char-name { font-size: 1.3rem; color: #d6336c; margin-bottom: 12px; }
+/* 米字格輔助線 */
+#write-grid {
+  width: min(72vw, 300px);
+  height: min(72vw, 300px);
+  margin: 0 auto;
+  border: 2px solid #f1c4d4;
+  border-radius: 8px;
+  background-color: #fffafc;
+  background-image:
+    linear-gradient(#f1c4d4 1px, transparent 1px),
+    linear-gradient(90deg, #f1c4d4 1px, transparent 1px),
+    linear-gradient(45deg, transparent calc(50% - 1px), #f1c4d4 calc(50% - 1px), #f1c4d4 calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(-45deg, transparent calc(50% - 1px), #f1c4d4 calc(50% - 1px), #f1c4d4 calc(50% + 1px), transparent calc(50% + 1px));
+  background-size: 100% 50%, 50% 100%, 100% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center, center, center, center;
+}
+#write-target { width: 100%; height: 100%; }
+.write-feedback { min-height: 1.4em; margin: 12px 0 4px; font-size: 1.1rem; color: #2b8a3e; }
+.write-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.write-btns button {
+  border: none; border-radius: 999px; padding: 10px 18px; font-size: 1rem;
+  font-family: inherit; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.12);
+}
+#write-demo { background: #d0ebff; }
+#write-quiz { background: #ffd166; }
+#write-again { background: #e9ecef; }
+.write-fallback {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; font-size: 7rem; color: #d6336c;
 }
