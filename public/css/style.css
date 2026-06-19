@@ -16,8 +16,12 @@ html, body {
   -webkit-user-select: none;
   user-select: none;
 }
+/* body 用 flex column：header 佔自然高度，畫面 .screen 食晒剩低空間並自己 scroll，
+   唔再靠寫死嘅 calc(100% - 56px)（header 換行時會被切走、scroll 唔到，測驗結果見唔到底）。 */
+body { display: flex; flex-direction: column; }
 
 header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -41,7 +45,8 @@ nav { display: flex; gap: 8px; }
 .nav-btn.active { background: #ffd166; }
 
 .screen {
-  height: calc(100% - 56px);
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
